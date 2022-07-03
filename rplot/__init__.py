@@ -110,6 +110,9 @@ class Plot:
         self.subgrid = subgrid
         self._series = []
         self.window = None
+        self.vmin = None
+        self.vmax = None
+        self.excluded = []
 
     def __repr__(self):
         return f'Plot(curses={self.curses}, width={self.width}, height={self.height}, grid={self.grid}, subgrid={self.subgrid}, _series={self._series}'
@@ -208,33 +211,39 @@ class Plot:
             self._series.append(Series(1 + n))
         return self._series[n]
 
-    def v2y(self, v, vmin, vmax):
-        return int(self.height - self.height * (v - vmin) / (vmax - vmin))
+    def visible_series(self):
+        for sr in self._series:
+            if sr.id_ not in self.excluded:
+                yield sr
 
-    def draw_single_series(self, sr, vmin=None, vmax=None):
+    def v2y(self, v):
+        return int(self.height - self.height * (v - self.vmin) /
+                   (self.vmax - self.vmin))
+
+    def draw_single_series(self, sr):
         x0, y0 = None, None
         for x in range(self.width):
             ratio = x / self.width
             v = sr.at(ratio, self.window)
-            y = self.v2y(v, vmin, vmax)
+            y = self.v2y(v)
             if x > 0:
                 self.draw_line(x0, y0, x, y, sr.color)
             x0, y0 = x, y
 
-    def draw_series(self, vmin=None, vmax=None, excluded=None):
-        series = [sr for sr in self._series if sr.id_ not in excluded]
-        if vmin is None:
-            vmin = min([sr.vmin for sr in series])
-        if vmax is None:
-            vmax = max([sr.vmax for sr in series])
+    def update_minmax(self, excluded=None):
+        self.vmin = min([sr.vmin for sr in self.visible_series()])
+        self.vmax = max([sr.vmax for sr in self.visible_series()])
+
+    def draw_series(self, excluded=None):
+        self.update_minmax(excluded)
         # Draw grid line.
         if self.subgrid:
-            self.draw_grid(self.subgrid, vmin, vmax, DARK_GRAY)
+            self.draw_grid(self.subgrid, DARK_GRAY)
         if self.grid:
-            self.draw_grid(self.grid, vmin, vmax, GRAY)
+            self.draw_grid(self.grid, GRAY)
         # Draw all series.
-        for sr in series:
-            self.draw_single_series(sr, vmin, vmax)
+        for sr in self.visible_series():
+            self.draw_single_series(sr)
         # Draw legends.
         # NOTE: legends are shown also for *excluded* serries
         if not self.curses:
@@ -246,18 +255,18 @@ class Plot:
             self.screen.fill((0, 0, 0), pygame.Rect(x, y, w, h))
         self.draw_legends()
         # Draw ticks.
-        self.draw_text(78, 1, f'{vmax:8.2f}', WHITE)
-        self.draw_text(78, 32, f'{vmin:8.2f}', WHITE)
+        self.draw_text(78, 1, f'{self.vmax:8.2f}', WHITE)
+        self.draw_text(78, 32, f'{self.vmin:8.2f}', WHITE)
 
-    def draw_grid(self, grid, vmin, vmax, color):
-        ngrids = (vmax - vmin) / grid
+    def draw_grid(self, grid, color):
+        ngrids = (self.vmax - self.vmin) / grid
         n = int(ngrids)
         if self.curses and n > 5:
             return
         frac = ngrids - n
-        v = vmin + grid * frac
+        v = self.vmin + grid * frac
         for i in range(n):
-            y = self.v2y(v, vmin, vmax)
+            y = self.v2y(v)
             self.draw_line(0, y, self.width, y, color)
             v += grid
 
