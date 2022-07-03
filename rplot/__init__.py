@@ -4,8 +4,6 @@
 # Copyright (c) 2022, Hiroyuki Ohsaki.
 # All rights reserved.
 #
-# $Id: __init__.py,v 1.9 2022/07/03 12:18:16 ohsaki Exp ohsaki $
-#
 
 import contextlib
 import time
@@ -24,6 +22,7 @@ BLACK = (0, 0, 0)
 
 DARK_GRAY = 100
 GRAY = 101
+WHITE = 102
 
 # This code is taken from cellx/monitor/color.py.
 def hsv2rgb(h, s, v):
@@ -53,6 +52,8 @@ def color_rgb(n):
         return 32, 32, 32
     if n == GRAY:
         return 64, 64, 64
+    if n == WHITE:
+        return 255, 255, 255
     plist = [n / 10 for n in [6, 8, 1, 10, 0, 4, 9, 2, 5, 3, 7]]
     i = n % len(plist)
     r, g, b = hsv2rgb(255 * plist[i], .6, 1.)
@@ -69,6 +70,7 @@ class Series(list):
         if label is None:
             label = f'#{id_}'
         self.label = label
+        self.vsum = 0
 
     def __repr__(self):
         return f'Series(id_={self.id_}, vmin={self.vmin}, vmax={self.vmax}, color={self.color}, label={self.label}, len={len(self)}'
@@ -78,6 +80,7 @@ class Series(list):
             self.vmin = v
         if v > self.vmax:
             self.vmax = v
+        self.vsum += v
         super().append(v)
 
     def at(self, ratio, window=None):
@@ -237,11 +240,14 @@ class Plot:
         if not self.curses:
             # Clear the backgound of legends.
             x, y = self.pos2xy(1, 1)
-            w, h = self.pos2xy(16, len(self._series))
+            w, h = self.pos2xy(4 + 10 * 3, len(self._series))
             w += FONT_SIZE // 2
             h += FONT_SIZE // 2
-            self.screen.fill((32, 32, 32), pygame.Rect(x, y, w, h))
+            self.screen.fill((0, 0, 0), pygame.Rect(x, y, w, h))
         self.draw_legends()
+        # Draw ticks.
+        self.draw_text(78, 1, f'{vmax:8.2f}', WHITE)
+        self.draw_text(78, 32, f'{vmin:8.2f}', WHITE)
 
     def draw_grid(self, grid, vmin, vmax, color):
         ngrids = (vmax - vmin) / grid
@@ -261,4 +267,6 @@ class Plot:
             y = 1 + n
             v = sr[-1]
             self.draw_text(x, y, sr.label, sr.color)
-            self.draw_text(x + 6, y, f'{v:9.2f}', sr.color)
+            mean = sr.vsum / len(sr)
+            self.draw_text(x + 4, y, f'{v:8.2f}/{mean:8.2f}/{sr.vmax:8.2f}',
+                           sr.color)
