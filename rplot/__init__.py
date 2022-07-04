@@ -48,7 +48,7 @@ def hsv2rgb(h, s, v):
         return v, p, q
 
 class Series(list):
-    def __init__(self, id_=None, vmin=0, vmax=1, color=None, label=None):
+    def __init__(self, id_=None, vmin=0, vmax=1, color=None, label=None, hide=False):
         self.id_ = id_
         self.vmin = vmin
         self.vmax = vmax
@@ -58,6 +58,7 @@ class Series(list):
         if label is None:
             label = f'#{id_}'
         self.label = label
+        self.hide = False
         self.vsum = 0
 
     def __repr__(self):
@@ -90,7 +91,7 @@ class Plot:
                  offset=None,
                  grid=None,
                  subgrid=None,
-                     start_color=0):
+                 start_color=0):
         self.screen = screen
         if screen:
             if width is None:
@@ -109,7 +110,6 @@ class Plot:
         self.window = None
         self.vmin = None
         self.vmax = None
-        self.excluded = []
 
     def __repr__(self):
         return f'Plot(grid={self.grid}, subgrid={self.subgrid}, _series={self._series})'
@@ -123,10 +123,18 @@ class Plot:
 
     def visible_series(self):
         for sr in self._series:
-            if sr.id_ not in self.excluded:
+            if not sr.hide:
                 yield sr
 
-    def v2y(self, v):
+    def update_minmax(self):
+        try:
+            self.vmin = min([sr.vmin for sr in self.visible_series()])
+            self.vmax = max([sr.vmax for sr in self.visible_series()])
+        except ValueError:
+            self.vmin = None
+            self.vmax = None
+
+    def to_y_coordinate(self, v):
         return int(self.height - self.height * (v - self.vmin) /
                    (self.vmax - self.vmin))
 
@@ -137,7 +145,7 @@ class Plot:
         for x in range(self.width):
             ratio = x / self.width
             v = sr.at(ratio, self.window)
-            y = self.v2y(v)
+            y = self.to_y_coordinate(v)
             if x > 0:
                 self.screen.draw_line(x0,
                                       y0,
@@ -147,12 +155,39 @@ class Plot:
                                       offset=self.offset)
             x0, y0 = x, y
 
-    def update_minmax(self, excluded=None):
-        self.vmin = min([sr.vmin for sr in self.visible_series()])
-        self.vmax = max([sr.vmax for sr in self.visible_series()])
+    def draw_grid(self, grid, color):
+        ngrids = (self.vmax - self.vmin) / grid
+        n = int(ngrids)
+        if self.screen.curses and n > 5:
+            return
+        frac = ngrids - n
+        v = self.vmin + grid * frac
+        for i in range(n):
+            y = self.to_y_coordinate(v)
+            self.screen.draw_line(0,
+                                  y,
+                                  self.width,
+                                  y,
+                                  color,
+                                  offset=self.offset)
+            v += grid
 
-    def draw_series(self, excluded=None):
-        self.update_minmax(excluded)
+    def draw_legends(self):
+        # NOTE: legends are shown also for *excluded* serries
+        for n, sr in enumerate(self._series):
+            x = 1
+            y = 1 + n * FONT_SIZE
+            v = sr[-1]
+            self.screen.draw_text(x, y, sr.label, sr.color, offset=self.offset)
+            mean = sr.vsum / len(sr)
+            self.screen.draw_text(x + FONT_SIZE * 4,
+                                  y,
+                                  f'{v:8.2f}/{mean:8.2f}/{sr.vmax:8.2f}',
+                                  sr.color,
+                                  offset=self.offset)
+
+    def draw_series(self):
+        self.update_minmax()
         # Draw grid line.
         if self.subgrid:
             self.draw_grid(self.subgrid, DARK_GRAY)
@@ -162,7 +197,6 @@ class Plot:
         for sr in self.visible_series():
             self.draw_single_series(sr)
         # Draw legends.
-        # NOTE: legends are shown also for *excluded* serries
         self.draw_legends()
         # Draw ticks.
         self.screen.draw_text(self.width - FONT_SIZE * 6,
@@ -175,36 +209,6 @@ class Plot:
                               f'{self.vmin:8.2f}',
                               WHITE,
                               offset=self.offset)
-
-    def draw_grid(self, grid, color):
-        ngrids = (self.vmax - self.vmin) / grid
-        n = int(ngrids)
-        if self.screen.curses and n > 5:
-            return
-        frac = ngrids - n
-        v = self.vmin + grid * frac
-        for i in range(n):
-            y = self.v2y(v)
-            self.screen.draw_line(0,
-                                  y,
-                                  self.width,
-                                  y,
-                                  color,
-                                  offset=self.offset)
-            v += grid
-
-    def draw_legends(self):
-        for n, sr in enumerate(self._series):
-            x = 1
-            y = 1 + n * FONT_SIZE
-            v = sr[-1]
-            self.screen.draw_text(x, y, sr.label, sr.color, offset=self.offset)
-            mean = sr.vsum / len(sr)
-            self.screen.draw_text(x + FONT_SIZE * 4,
-                                  y,
-                                  f'{v:8.2f}/{mean:8.2f}/{sr.vmax:8.2f}',
-                                  sr.color,
-                                  offset=self.offset)
 
 class Screen:
     def __init__(self, curses=False, width=None, height=None):
