@@ -54,7 +54,7 @@ class Series(list):
     def __init__(self,
                  id_=None,
                  vmin=0,
-                 vmax=1,
+                 vmax=.01,
                  color=None,
                  label=None,
                  hide=False):
@@ -150,22 +150,24 @@ class Plot:
         """Assuming that the y-axis ranges from the minimum and the maximum
         value, return the y-axsis of the value V.  For instance, if V is eqaul
         to the minimum, this function returns the value of SELF.HEIGHT."""
-        # NOTE: -1 is for fitting within the screen.
-        return int((self.height - 1) - (self.height - 1) * (v - self.vmin) /
-                   (self.vmax - self.vmin))
+        margin = int(self.height * .01)
+        height = int(self.height * .98)
+        return margin + int(height - height * (v - self.vmin) / (self.vmax - self.vmin))
 
     def draw_single_series(self, sr):
         """Draw a line for the seriries object SR as a concatenation of short
         line segments."""
+        margin = int(self.width * .01)
+        width = int(self.width * .98)
         x0, y0 = None, None
-        for x in range(self.width):
-            ratio = x / self.width
+        for x in range(width):
+            ratio = x / width
             v = sr.at(ratio, self.left, self.right)
             y = self.to_y_coordinate(v)
             if x > 0:
-                self.screen.draw_line(x0,
+                self.screen.draw_line(margin + x0,
                                       y0,
-                                      x,
+                                      margin + x,
                                       y,
                                       sr.color,
                                       offset=self.offset)
@@ -268,7 +270,10 @@ class Screen:
         self.curses = curses
         # Uses SVGA (800x600 pixels) window by default.
         if not curses and (width is None or height is None):
-            width, height = 800, 600
+            if fullscreen:
+                width, height = 1920, 1080
+            else:
+                width, height = 800, 600
         self.width = width
         self.height = height
         self._rplots = []
