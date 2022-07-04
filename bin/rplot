@@ -1,4 +1,4 @@
-#!/usr/bin/env pypy3
+#!/usr/bin/env python3
 #
 # Stream-based realtime scientific data plotter.
 # Copyright (c) 2022, Hiroyuki Ohsaki.
@@ -29,7 +29,6 @@ usage: {sys.argv[0]} [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps] [
   -m #     display multiple plots simultaneously
   -g unit  specify the spacing of vertial grids
   -w range specify the window range
-  -W       automatic window range mode
   -F fps   limit the frequency of display
 """)
 
@@ -70,26 +69,13 @@ def do_automatic_grid(plots):
             continue
         delta = rp.vmax - rp.vmin
         digits = int(math.log(delta) / math.log(10))
-        rp.grid = 10 ** digits
-        rp.subgrid = 2 * 10 ** (digits - 1)
-
-def do_automatic_window(plots, started=[None]):
-    curtime = time.time()
-    # Record the program invokation time.
-    if started[0] is None:
-        started[0] = curtime
-    for rp in plots:
-        if rp.window:
-            continue
-        if curtime - started[0] >= 5:
-            # Automatically change to the fixed window mode after 5 seconds.
-            rp.window = len(rp.series(0))
+        rp.grid = 10**digits
+        rp.subgrid = 2 * 10**(digits - 1)
 
 def process_key(screen, plots, to_hide):
     key = screen.scan_key()
     if not key:
         return
-    print(f'<{key}>')
     # FIXME: May not work in multi-row mode.
     if '1' <= key <= '9':
         n = int(key) - 1
@@ -103,13 +89,15 @@ def process_key(screen, plots, to_hide):
                 return
     if key == 'w':
         for rp in plots:
-            if rp.window:
-                rp.window = None
-            else:
-                rp.window = len(rp.series(0))
+            rp.left = -len(rp.series(0))
+    if key == 'r':
+        for rp in plots:
+            rp.right = 1
+            rp.left = 0
 
 def main():
-    opt = getopts('vcfWh:m:g:w:F:') or usage()
+    # Parse command line options.
+    opt = getopts('vcfh:m:g:w:F:') or usage()
     use_curses = opt.c
     full_screen = opt.f
     to_hide = [False] * MAX_SERIES
@@ -119,13 +107,12 @@ def main():
     nplots = int(opt.m) if opt.m else 1
     grid = float(opt.g) if opt.g else None
     automatic_grid = True if not opt.g else False
-    window = float(opt.w) if opt.w else None
-    automatic_window = opt.W
+    window = float(opt.w) if opt.w else 0
     fps = float(opt.F) if opt.F else 30.
-
     width, height = None, None
     if full_screen:
         width, height = 1920, 1080
+
     screen = rplot.Screen(curses=use_curses, width=width, height=height)
     plots = [None] * nplots
     height = screen.height // nplots
@@ -135,18 +122,19 @@ def main():
                               offset=(0, height * n),
                               grid=grid,
                               start_color=n)
-        plots[n].window = window
+        plots[n].left = -window
 
     _hook = fileinput.hook_encoded('utf-8', 'backslashreplace')
     for line in fileinput.input(openhook=_hook):
         line = line.rstrip()
         process_line(plots, line, to_hide)
+        for rp in plots:
+            if rp.right >= 0:
+                rp.right += 1
         if need_display(fps):
             redraw_display(screen, plots)
             if automatic_grid:
                 do_automatic_grid(plots)
-            if automatic_window:
-                do_automatic_window(plots)
         process_key(screen, plots, to_hide)
 
 if __name__ == "__main__":
