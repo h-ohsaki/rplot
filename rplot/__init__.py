@@ -56,6 +56,7 @@ class Series(list):
                  vmin=0,
                  vmax=.01,
                  color=None,
+                 fill=False,
                  label=None,
                  hide=False):
         self.id_ = id_
@@ -64,6 +65,7 @@ class Series(list):
         if color is None:
             color = id_
         self.color = color
+        self.fill = fill
         if label is None:
             label = f'#{id_}'
         self.label = label
@@ -152,7 +154,8 @@ class Plot:
         to the minimum, this function returns the value of SELF.HEIGHT."""
         margin = int(self.height * .01)
         height = int(self.height * .98)
-        return margin + int(height - height * (v - self.vmin) / (self.vmax - self.vmin))
+        return margin + int(height - height * (v - self.vmin) /
+                            (self.vmax - self.vmin))
 
     def draw_single_series(self, sr):
         """Draw a line for the seriries object SR as a concatenation of short
@@ -171,6 +174,14 @@ class Plot:
                                       y,
                                       sr.color,
                                       offset=self.offset)
+                if sr.fill:
+                    self.screen.draw_line(margin + x,
+                                          y,
+                                          margin + x,
+                                          self.height,
+                                          sr.color,
+                                          alpha=32,
+                                          offset=self.offset)
             x0, y0 = x, y
 
     def draw_grid(self, grid, color):
