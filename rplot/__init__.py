@@ -67,7 +67,7 @@ class Series(list):
             label = f'#{id_}'
         self.label = label
         self.hide = False
-        self.vsum = 0	# Used for obtaining the sample mean.
+        self.vsum = 0  # Used for obtaining the sample mean.
 
     def __repr__(self):
         return f'Series(id_={self.id_}, vmin={self.vmin}, vmax={self.vmax}, color={self.color}, label={self.label}, hide={self.hide}, len={len(self)}'
@@ -238,9 +238,9 @@ class Plot:
                               WHITE,
                               offset=self.offset)
 
-    def draw_background(self):
-        """Fill the background with gradient colors."""
-        # FIXME: Should not re-generate at every drawing.
+    @functools.cache
+    def create_background(self):
+        surface = pygame.Surface((self.width, self.height))
         for y in range(self.height):
             alpha = 48 - int(48 * y / self.height)
             self.screen.draw_line(0,
@@ -249,7 +249,15 @@ class Plot:
                                   y,
                                   self.start_color,
                                   offset=self.offset,
-                                  alpha=alpha)
+                                  alpha=alpha,
+                                  surface=surface)
+        return surface
+
+    def draw_background(self):
+        """Fill the background with gradient colors."""
+        # FIXME: Should not re-generate at every drawing.
+        bg = self.create_background()
+        self.screen.screen.blit(bg, self.offset)
 
 class Screen:
     def __init__(self, curses=False, width=None, height=None):
@@ -301,7 +309,15 @@ class Screen:
             curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLACK)
             self.screen.erase()
 
-    def draw_line(self, x1, y1, x2, y2, color=0, offset=None, alpha=255):
+    def draw_line(self,
+                  x1,
+                  y1,
+                  x2,
+                  y2,
+                  color=0,
+                  offset=None,
+                  alpha=255,
+                  surface=None):
         """Draw a straight line connecting two points: (X1, Y1) and (X2, Y2).
         The line color can b especified by COLOR and ALPHA."""
         if offset is None:
@@ -310,6 +326,8 @@ class Screen:
         x1, y1 = x1 + dx, y1 + dy
         x2, y2 = x2 + dx, y2 + dy
         if not self.curses:
+            if surface is None:
+                surface = self.screen
             rgba = self.color_rgba(color, alpha)
             pygame.gfxdraw.line(self.screen, x1, y1, x2, y2, rgba)
             return
@@ -344,8 +362,15 @@ class Screen:
     @functools.cache
     def load_font(self, name, size, bold=False):
         return pygame.font.SysFont(name, size, bold=bold)
-        
-    def draw_text(self, x, y, text, color=0, size=FONT_SIZE, offset=None, _cache=[]):
+
+    def draw_text(self,
+                  x,
+                  y,
+                  text,
+                  color=0,
+                  size=FONT_SIZE,
+                  offset=None,
+                  _cache=[]):
         """Display a text TEXT at the location of (X, Y).  Font size and color
         can be specified with COLOR and SIZE."""
         if offset is None:
