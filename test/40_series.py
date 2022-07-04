@@ -3,7 +3,7 @@
 from test_more import ok, eq
 import rplot
 
-rp = rplot.Plot(curses=True)
+rp = rplot.Plot()
 sr = rp.series(0)
 ok(len(sr) == 0)
 sr.append(1)
