@@ -5,10 +5,6 @@
 # All rights reserved.
 #
 
-# automatic speed control
-# multiple polots in row
-
-import fileinput
 import math
 import re
 import sys
@@ -18,124 +14,159 @@ from perlcompat import die, warn, getopts
 import rplot
 import tbdump
 
-MAX_SERIES = 100
-
 def usage():
     die(f"""\
 usage: {sys.argv[0]} [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps] [file...]
-  -v       verbose mode
   -c       curses mode (disable GUI display)
+  -f       full screen mode
   -h list  hide specified fields from display
   -m #     display multiple plots simultaneously
-  -g unit  specify the spacing of vertial grids
-  -w range specify the window range
+  -w range specify the plot range
   -F fps   limit the frequency of display
 """)
 
-def process_line(plots, line, to_hide):
+class View:
+    def __init__(self, screen=None, count=0, left=0, right=-1):
+        self.screen = screen
+        self.count = count
+        self.left = left
+        self.right = right
+        self.plots = []
+        self.fps = 30
+
+    def nplots(self):
+        return len(self.plots)
+
+    def resize_plots(self):
+        nplots = self.nplots()
+        height = self.screen.height // nplots
+        for n, rp in enumerate(self.plots):
+            rp.height = height
+            rp.offset = 0, height * n
+        # NOTE: Should discard background surface cache.
+
+    def series(self, n):
+        i = n % self.nplots()
+        j = n // self.nplots()
+        return self.plots[i].series(j)
+
+    def flush(self):
+        for rp in self.plots:
+            rp.left = self.left
+            rp.right = self.right
+
+def process_line(view, line):
     fields = line.split()
     for n, v in enumerate(fields):
-        i = n % len(plots)
-        j = n // len(plots)
-        sr = plots[i].series(j)
-        # FIXME: This should be done once at the time of object creation.
-        sr.hide = to_hide[n]
+        sr = view.series(n)
         # Regard the prceeding string as a field label.
         m = re.search(r'^(\w+)=(.+)', v)
         if m:
             label, v = m.groups()
             sr.label = label
         sr.append(float(v))
+    view.count += 1
 
-def need_display(fps=30, last_draw=[0]):
+def need_display(fps=30, last_time=[0]):
     curtime = time.time()
     # Limit the frame rate by FPS.
-    if curtime - last_draw[0] < 1 / fps:
+    if curtime - last_time[0] < 1 / fps:
         return False
-    last_draw[0] = curtime
+    last_time[0] = curtime
     return True
 
-def redraw_display(screen, plots):
-    screen.clear()
-    for rp in plots:
+def redraw_display(view):
+    view.screen.clear()
+    for rp in view.plots:
         rp.draw_background()
         rp.draw_series()
-    screen.update()
+    view.screen.update()
 
-def do_automatic_grid(plots):
-    for rp in plots:
+def do_automatic_grid(view):
+    for rp in view.plots:
         # Skip if either max or min is undetermined.
-        if rp.vmax is None:
+        if rp.vmax is None or rp.vmin is None:
             continue
         delta = rp.vmax - rp.vmin
         digits = int(math.log(delta) / math.log(10))
         rp.grid = 10**digits
         rp.subgrid = 2 * 10**(digits - 1)
 
-def process_key(screen, plots, to_hide):
-    key = screen.scan_key()
+def process_key(view):
+    key = view.screen.scan_key()
     if not key:
         return
     # FIXME: May not work in multi-row mode.
     if '1' <= key <= '9':
         n = int(key) - 1
-        to_hide[n] = not to_hide[n]
+        sr = view.series(n)
+        sr.hide = not sr.hide
     if key == 'q' or key == '\x1b':
         sys.exit()
     if key == ' ':
+        # Wait until the space will be pressed again.
         while True:
-            key = screen.scan_key()
+            key = view.screen.scan_key()
             if key == ' ':
                 return
     if key == 'w':
-        for rp in plots:
-            rp.left = -len(rp.series(0))
+        view.left = -view.count
     if key == 'r':
-        for rp in plots:
-            rp.right = 1
-            rp.left = 0
+        view.left = 0
+        view.right = 1
+    if key == '[':
+        if view.right < 0:
+            view.right = view.count // 2
+        else:
+            view.right = view.right // 2
+    if key == ']':
+        if view.right < 0:
+            pass
+        else:
+            view.right = view.right * 2
+            if view.right > view.count:
+                view.right = -1
+
+def main_loop(view):
+    while True:
+        line = sys.stdin.readline()
+        if line != '':  # Not EOF?
+            line = line.rstrip()
+            process_line(view, line)
+        else:
+            if view.right >= view.count:
+                break
+        # Increment the right view position.
+        if view.right >= 0:
+            view.right += 1
+        # Display at most FPS frames per second.
+        if need_display(view.fps):
+            view.flush()
+            redraw_display(view)
+            do_automatic_grid(view)
+        process_key(view)
 
 def main():
     # Parse command line options.
-    opt = getopts('vcfh:m:g:w:F:') or usage()
+    opt = getopts('cfh:m:w:F:') or usage()
     use_curses = opt.c
-    full_screen = opt.f
-    to_hide = [False] * MAX_SERIES
-    if opt.h:
-        for n in opt.h.split(','):
-            to_hide[int(n) - 1] = True
+    fullscreen = opt.f
+    to_hide = [int(s) for s in opt.h.split(',')] if opt.h else []
     nplots = int(opt.m) if opt.m else 1
-    grid = float(opt.g) if opt.g else None
-    automatic_grid = True if not opt.g else False
     window = float(opt.w) if opt.w else 0
-    fps = float(opt.F) if opt.F else 30.
-    width, height = None, None
-    if full_screen:
-        width, height = 1920, 1080
+    fps = float(opt.F) if opt.F else 30
 
-    screen = rplot.Screen(curses=use_curses, width=width, height=height)
-    plots = [None] * nplots
-    height = screen.height // nplots
+    screen = rplot.Screen(curses=use_curses, fullscreen=fullscreen)
+    view = View(screen)
+    view.left = -window
+    view.right = -1
+    view.fps = fps
     for n in range(nplots):
-        plots[n] = rplot.Plot(screen=screen,
-                              height=height,
-                              offset=(0, height * n),
-                              grid=grid,
-                              start_color=n)
-        plots[n].left = -window
+        rp = rplot.Plot(screen=screen, start_color=n)
+        view.plots.append(rp)
+    view.resize_plots()
 
-    _hook = fileinput.hook_encoded('utf-8', 'backslashreplace')
-    for line in fileinput.input(openhook=_hook):
-        line = line.rstrip()
-        process_line(plots, line, to_hide)
-        for rp in plots:
-            if rp.right >= 0:
-                rp.right += 1
-        if need_display(fps):
-            redraw_display(screen, plots)
-            if automatic_grid:
-                do_automatic_grid(plots)
-        process_key(screen, plots, to_hide)
+    main_loop(view)
 
 if __name__ == "__main__":
     main()
