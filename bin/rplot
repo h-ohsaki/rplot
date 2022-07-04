@@ -64,9 +64,9 @@ def process_line(view, line):
     for n, v in enumerate(fields):
         sr = view.series(n)
         # Regard the prceeding string as a field label.
-        m = re.search(r'^(\w+)=(.+)', v)
-        if m:
-            label, v = m.groups()
+        pos = v.find('=')
+        if pos > 0:
+            label, v = v[:pos], v[pos + 1:]
             sr.label = label
         sr.append(float(v))
     view.count += 1
