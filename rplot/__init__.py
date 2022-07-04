@@ -82,19 +82,15 @@ class Series(list):
         self.vsum += v
         super().append(v)
 
-    def at(self, ratio, window=None):
-        """For a given window size WINDOW, pick a value located at the ratio
-        of RATIO in all samples withn the last WINDOW.  If window is not
-        specified, take a sample from all data."""
-        if window is None:
-            n = int(len(self) * ratio)
-            return self[n]
-        # If the number of samples is not enough, pick from all available samples.
-        if len(self) < window:
-            return self.at(ratio, None)
-        # Otherwise, pick from the window of samples at the end.
-        offset = len(self) - window
-        n = int(offset + window * ratio)
+    def at(self, ratio, left, right):
+        """Return a value located at the ratio of RATIO in samples between
+        LEFT and RIGHT.  If LEFT or RIGHT is negative, the offset is regarded
+        from the end."""
+        if left < 0:
+            left = max(len(self) + left, 0)
+        if right < 0:
+            right += len(self)
+        n = int(left + (right - left) * ratio)
         return self[n]
 
 class Plot:
@@ -121,7 +117,8 @@ class Plot:
         self.subgrid = subgrid
         self.start_color = start_color
         self._series = []
-        self.window = None
+        self.left = 0
+        self.right = -1
         self.vmin = None
         self.vmax = None
 
@@ -161,7 +158,7 @@ class Plot:
         x0, y0 = None, None
         for x in range(self.width):
             ratio = x / self.width
-            v = sr.at(ratio, self.window)
+            v = sr.at(ratio, self.left, self.right)
             y = self.to_y_coordinate(v)
             if x > 0:
                 self.screen.draw_line(x0,
@@ -200,7 +197,7 @@ class Plot:
         for n, sr in enumerate(self._series):
             x = 1
             y = 1 + n * FONT_SIZE
-            v = sr[-1]
+            v = sr[self.right]
             # Display field label.
             self.screen.draw_text(x, y, sr.label, sr.color, offset=self.offset)
             # Display current, mean, and maximum values.
