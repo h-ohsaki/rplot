@@ -89,7 +89,8 @@ class Plot:
                  height=None,
                  offset=None,
                  grid=None,
-                 subgrid=None):
+                 subgrid=None,
+                     start_color=0):
         self.screen = screen
         if screen:
             if width is None:
@@ -103,6 +104,7 @@ class Plot:
         self.offset = offset
         self.grid = grid
         self.subgrid = subgrid
+        self.start_color = start_color
         self._series = []
         self.window = None
         self.vmin = None
@@ -115,7 +117,8 @@ class Plot:
     # series handling
     def series(self, n):
         while len(self._series) - 1 < n:
-            self._series.append(Series(1 + n))
+            sr = Series(1 + n, color=self.start_color + n)
+            self._series.append(sr)
         return self._series[n]
 
     def visible_series(self):
@@ -160,22 +163,15 @@ class Plot:
             self.draw_single_series(sr)
         # Draw legends.
         # NOTE: legends are shown also for *excluded* serries
-        if not self.screen.curses:
-            # Clear the backgound of legends.
-            x, y = self.screen.pos2xy(1, 1)
-            w, h = self.screen.pos2xy(4 + 10 * 3, len(self._series))
-            w += FONT_SIZE // 2
-            h += FONT_SIZE // 2
-            self.screen.screen.fill((0, 0, 0), pygame.Rect(x, y, w, h))
         self.draw_legends()
         # Draw ticks.
-        self.screen.draw_text(78,
-                              1,
+        self.screen.draw_text(self.width - FONT_SIZE * 6,
+                              0,
                               f'{self.vmax:8.2f}',
                               WHITE,
                               offset=self.offset)
-        self.screen.draw_text(78,
-                              32,
+        self.screen.draw_text(self.width - FONT_SIZE * 6,
+                              self.height - FONT_SIZE * 2,
                               f'{self.vmin:8.2f}',
                               WHITE,
                               offset=self.offset)
@@ -200,11 +196,11 @@ class Plot:
     def draw_legends(self):
         for n, sr in enumerate(self._series):
             x = 1
-            y = 1 + n
+            y = 1 + n * FONT_SIZE
             v = sr[-1]
             self.screen.draw_text(x, y, sr.label, sr.color, offset=self.offset)
             mean = sr.vsum / len(sr)
-            self.screen.draw_text(x + 4,
+            self.screen.draw_text(x + FONT_SIZE * 4,
                                   y,
                                   f'{v:8.2f}/{mean:8.2f}/{sr.vmax:8.2f}',
                                   sr.color,
@@ -289,9 +285,6 @@ class Screen:
                 x = int(x1 + (x2 - x1) * (y - y1) / (y2 - y1))
                 self.draw_text(x, y, point, color)
 
-    def pos2xy(self, x, y, size=FONT_SIZE, offset=(0, 0)):
-        return x * size // 2, (y - 1) * size + size // 2
-
     def draw_text(self, x, y, text, color=0, size=FONT_SIZE, offset=None):
         if offset is None:
             offset = 0, 0
@@ -301,8 +294,7 @@ class Screen:
             font = pygame.font.SysFont('Courier', size)
             rgb = self.color_rgb(color)
             # Enable antialiasing.
-            text = font.render(text, True, rgb)
-            x, y = self.pos2xy(x, y, size)
+            text = font.render(text, True, rgb, BLACK)
             self.screen.blit(text, (x, y))
         else:
             attr = curses.color_pair(1 + color % 7)
