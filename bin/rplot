@@ -33,6 +33,7 @@ class View:
         self.right = right
         self.plots = []
         self.fps = 30
+        self.pause = False
 
     def nplots(self):
         return len(self.plots)
@@ -104,22 +105,23 @@ def process_key(view):
     if key == 'q' or key == '\x1b':
         sys.exit()
     if key == ' ':
-        # Wait until the space will be pressed again.
-        while True:
-            key = view.screen.scan_key()
-            if key == ' ':
-                return
+        view.pause = not view.pause
+        if view.right <= 0:
+            view.right = view.count
     if key == 'w':
         view.left = -view.count
-    if key == 'r':
+    if key == '':
         view.left = 0
         view.right = 1
-    if key == '[':
+    if key == '':
+        view.left = 0
+        view.right = -1
+    if key == '':
         if view.right < 0:
             view.right = view.count // 2
         else:
             view.right = view.right // 2
-    if key == ']':
+    if key == '':
         if view.right < 0:
             pass
         else:
@@ -137,7 +139,7 @@ def main_loop(view):
             if view.right >= view.count:
                 break
         # Increment the right view position.
-        if view.right >= 0:
+        if not view.pause and view.right >= 0:
             view.right += 1
         # Display at most FPS frames per second.
         if need_display(view.fps):
@@ -165,7 +167,11 @@ def main():
         rp = rplot.Plot(screen=screen, start_color=n)
         view.plots.append(rp)
     view.resize_plots()
-
+    # # Do not show series specified by -h option.
+    # for n in to_hide:
+    #     sr = view.series(n)
+    #     sr.hide = True
+        
     main_loop(view)
 
 if __name__ == "__main__":
