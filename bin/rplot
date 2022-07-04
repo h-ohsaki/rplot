@@ -88,8 +88,6 @@ def do_automatic_window(plots, started=[None]):
             # Automatically change to the fixed window mode after 5 seconds.
             rp.window = len(rp.series(0))
 
-import pygame
-
 def main():
     opt = getopts('vcWh:m:g:w:F:') or usage()
     use_curses = opt.c
@@ -122,17 +120,7 @@ def main():
                 do_automatic_grid(plots)
             if automatic_window:
                 do_automatic_window(plots)
-        event = pygame.event.poll()
-        if event and event.type == pygame.VIDEORESIZE:
-            w, h = event.w, event.h
-            screen.width = w
-            screen.height = h
-            for n in range(nplots):
-                plots[n].width = w
-                plots[n].height = h//nplots
-                plots[n].offset = (0, h//nplots*n)
-
-#    screen.wait()
+    screen.wait()
 
 if __name__ == "__main__":
     main()
