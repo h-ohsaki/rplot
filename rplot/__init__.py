@@ -17,7 +17,7 @@ from functools import cache
 from perlcompat import die, warn, getopts
 import tbdump
 
-FONT_SIZE = 18
+FONT_SIZE = 14
 
 BLACK = (0, 0, 0)
 
@@ -151,7 +151,8 @@ class Plot:
         """Assuming that the y-axis ranges from the minimum and the maximum
         value, return the y-axsis of the value V.  For instance, if V is eqaul
         to the minimum, this function returns the value of SELF.HEIGHT."""
-        return int(self.height - self.height * (v - self.vmin) /
+        # NOTE: -1 is for fitting within the screen.
+        return int((self.height - 1) - (self.height - 1) * (v - self.vmin) /
                    (self.vmax - self.vmin))
 
     def draw_single_series(self, sr):
@@ -204,9 +205,9 @@ class Plot:
             self.screen.draw_text(x, y, sr.label, sr.color, offset=self.offset)
             # Display current, mean, and maximum values.
             mean = sr.vsum / len(sr)
-            self.screen.draw_text(x + FONT_SIZE * 4,
+            self.screen.draw_text(x + FONT_SIZE * 3,
                                   y,
-                                  f'{v:8.2f}/{mean:8.2f}/{sr.vmax:8.2f}',
+                                  f'{v:9.2f} AVG{mean:9.2f} MAX{sr.vmax:9.2f}',
                                   sr.color,
                                   offset=self.offset)
 
@@ -228,19 +229,19 @@ class Plot:
         # Draw legends.
         self.draw_legends()
         # Display the maximum and the minimum values.
-        self.screen.draw_text(self.width - FONT_SIZE * 6,
+        self.screen.draw_text(self.width - FONT_SIZE * 5,
                               0,
                               f'{self.vmax:8.2f}',
                               WHITE,
                               offset=self.offset)
-        self.screen.draw_text(self.width - FONT_SIZE * 6,
+        self.screen.draw_text(self.width - FONT_SIZE * 5,
                               self.height - FONT_SIZE * 2,
                               f'{self.vmin:8.2f}',
                               WHITE,
                               offset=self.offset)
 
     @cache
-    def create_background(self):
+    def create_background(self, n):
         surface = pygame.Surface((self.width, self.height))
         for y in range(self.height):
             alpha = 48 - int(48 * y / self.height)
@@ -249,7 +250,6 @@ class Plot:
                                   self.width,
                                   y,
                                   self.start_color,
-                                  offset=self.offset,
                                   alpha=alpha,
                                   surface=surface)
         return surface
@@ -257,7 +257,7 @@ class Plot:
     def draw_background(self):
         """Fill the background with gradient colors."""
         # FIXME: Should not re-generate at every drawing.
-        bg = self.create_background()
+        bg = self.create_background(self.start_color)
         self.screen.screen.blit(bg, self.offset)
 
 class Screen:
@@ -330,7 +330,7 @@ class Screen:
             if surface is None:
                 surface = self.screen
             rgba = self.color_rgba(color, alpha)
-            pygame.gfxdraw.line(self.screen, x1, y1, x2, y2, rgba)
+            pygame.gfxdraw.line(surface, x1, y1, x2, y2, rgba)
             return
 
         # Curses only.
