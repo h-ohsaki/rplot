@@ -12,7 +12,7 @@ with contextlib.redirect_stdout(None):
     import pygame
     import pygame.gfxdraw
 import curses
-import functools
+from functools import cache
 
 from perlcompat import die, warn, getopts
 import tbdump
@@ -27,6 +27,7 @@ GRAY = 101
 WHITE = 102
 
 # This code is taken from cellx/monitor/color.py.
+@cache
 def hsv2rgb(h, s, v):
     """Convert color in HSV (Hue, Saturation, Value) space to RGB.  Return (R,
     G, B) as a list.  Transformation algorithm is taken from
@@ -238,7 +239,7 @@ class Plot:
                               WHITE,
                               offset=self.offset)
 
-    @functools.cache
+    @cache
     def create_background(self):
         surface = pygame.Surface((self.width, self.height))
         for y in range(self.height):
@@ -273,7 +274,7 @@ class Screen:
     def __repr__(self):
         return f'Screen(curses={self.curses}, width={self.width}, height={self.height})'
 
-    @functools.cache
+    @cache
     def color_rgba(self, n, alpha=255):
         """Return 8-bit RGBA color for the color number N as a tuple.  The
         alpha channel is given by ALPHA."""
@@ -359,7 +360,7 @@ class Screen:
                 x = int(x1 + (x2 - x1) * (y - y1) / (y2 - y1))
                 self.draw_text(x, y, point, color)
 
-    @functools.cache
+    @cache
     def load_font(self, name, size, bold=False):
         return pygame.font.SysFont(name, size, bold=bold)
 
