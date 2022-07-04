@@ -5,9 +5,8 @@ import math
 from test_more import ok, eq
 import rplot
 
-rp = rplot.Plot()
-rp.init_screen()
+sc = rplot.Screen()
 for n in range(50):
-    rp.draw_text(n, n, f'#{n}: The quick brown fox jumps over the lazy dog.', color=n)
-rp.update()
-rp.wait()
+    sc.draw_text(n, n, f'#{n}: The quick brown fox jumps over the lazy dog.', color=n)
+sc.update()
+sc.wait()

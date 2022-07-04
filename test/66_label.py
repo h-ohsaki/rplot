@@ -7,8 +7,8 @@ import rplot
 
 nseries = 5
 
-rp = rplot.Plot(curses=True)
-rp.init_screen()
+sc = rplot.Screen(curses=True)
+rp = rplot.Plot(sc)
 
 for n in range(nseries):
     sr = rp.series(n)
@@ -18,5 +18,5 @@ for n in range(nseries):
     sr.label = f'{n}-th series'
 
 rp.draw_series()
-rp.update()
-rp.wait()
+sc.update()
+sc.wait()

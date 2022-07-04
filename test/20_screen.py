@@ -4,6 +4,5 @@ from test_more import ok, eq
 import rplot
 
 sc = rplot.Screen()
-sc.draw_text(10, 10, 'Hello, World!')
-sc.update()
-sc.wait()
+ok(sc.width == 800)
+ok(sc.height == 600)
