@@ -12,6 +12,7 @@ with contextlib.redirect_stdout(None):
     import pygame
     import pygame.gfxdraw
 import curses
+import functools
 
 from perlcompat import die, warn, getopts
 import tbdump
@@ -264,6 +265,7 @@ class Screen:
     def __repr__(self):
         return f'Screen(curses={self.curses}, width={self.width}, height={self.height})'
 
+    @functools.cache
     def color_rgba(self, n, alpha=255):
         """Return 8-bit RGBA color for the color number N as a tuple.  The
         alpha channel is given by ALPHA."""
@@ -339,7 +341,11 @@ class Screen:
                 x = int(x1 + (x2 - x1) * (y - y1) / (y2 - y1))
                 self.draw_text(x, y, point, color)
 
-    def draw_text(self, x, y, text, color=0, size=FONT_SIZE, offset=None):
+    @functools.cache
+    def load_font(self, name, size, bold=False):
+        return pygame.font.SysFont(name, size, bold=bold)
+        
+    def draw_text(self, x, y, text, color=0, size=FONT_SIZE, offset=None, _cache=[]):
         """Display a text TEXT at the location of (X, Y).  Font size and color
         can be specified with COLOR and SIZE."""
         if offset is None:
@@ -347,8 +353,7 @@ class Screen:
         dx, dy = offset
         x, y = x + dx, y + dy
         if not self.curses:
-            # FIXME: Loaded font object should be re-utilized.
-            font = pygame.font.SysFont('Courier', size, bold=True)
+            font = self.load_font('Courier', size, bold=True)
             rgba = self.color_rgba(color)
             # The second parameter True means enabling antialiasing.
             text = font.render(text, True, rgba, BLACK)
