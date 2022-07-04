@@ -34,6 +34,7 @@ class View:
         self.plots = []
         self.fps = 30
         self.pause = False
+        self.fill = False
 
     def nplots(self):
         return len(self.plots)
@@ -55,6 +56,8 @@ class View:
         for rp in self.plots:
             rp.left = self.left
             rp.right = self.right
+            for sr in rp._series:
+                sr.fill = self.fill
 
 def process_line(view, line):
     fields = line.split()
@@ -128,6 +131,8 @@ def process_key(view):
             view.right = view.right * 2
             if view.right > view.count:
                 view.right = -1
+    if key == 'f':
+        view.fill = not view.fill
 
 def main_loop(view):
     while True:
@@ -136,7 +141,7 @@ def main_loop(view):
             line = line.rstrip()
             process_line(view, line)
         else:
-            if view.right >= view.count:
+            if view.right < 0 or view.right >= view.count:
                 break
         # Increment the right view position.
         if not view.pause and view.right >= 0:
@@ -146,7 +151,7 @@ def main_loop(view):
             view.flush()
             redraw_display(view)
             do_automatic_grid(view)
-        process_key(view)
+            process_key(view)
 
 def main():
     # Parse command line options.
@@ -171,7 +176,7 @@ def main():
     # for n in to_hide:
     #     sr = view.series(n)
     #     sr.hide = True
-        
+
     main_loop(view)
 
 if __name__ == "__main__":
