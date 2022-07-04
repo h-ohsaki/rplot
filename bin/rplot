@@ -9,6 +9,7 @@
 # multiple polots in row
 
 import fileinput
+import math
 import re
 import sys
 import time
@@ -16,6 +17,8 @@ import time
 from perlcompat import die, warn, getopts
 import rplot
 import tbdump
+
+MAX_SERIES = 100
 
 def usage():
     die(f"""\
@@ -35,10 +38,9 @@ def process_line(plots, line, to_hide):
     for n, v in enumerate(fields):
         i = n % len(plots)
         j = n // len(plots)
-        hide = (1 + n) in to_hide
         sr = plots[i].series(j)
         # FIXME: This should be done once at the time of object creation.
-        sr.hide = hide
+        sr.hide = to_hide[n]
         # Regard the prceeding string as a field label.
         m = re.search(r'^(\w+)=(.+)', v)
         if m:
@@ -67,14 +69,9 @@ def do_automatic_grid(plots):
         if rp.vmax is None:
             continue
         delta = rp.vmax - rp.vmin
-        if delta >= 100:
-            rp.grid, rp.subgrid = 100, 20
-        elif delta >= 10:
-            rp.grid, rp.subgrid = 10, 2
-        elif delta >= 1:
-            rp.grid, rp.subgrid = 1, .2
-        elif delta >= .1:
-            rp.grid, rp.subgrid = .1, .02
+        digits = int(math.log(delta) / math.log(10))
+        rp.grid = 10 ** digits
+        rp.subgrid = 2 * 10 ** (digits - 1)
 
 def do_automatic_window(plots, started=[None]):
     curtime = time.time()
@@ -88,18 +85,48 @@ def do_automatic_window(plots, started=[None]):
             # Automatically change to the fixed window mode after 5 seconds.
             rp.window = len(rp.series(0))
 
+def process_key(screen, plots, to_hide):
+    key = screen.scan_key()
+    if not key:
+        return
+    print(f'<{key}>')
+    # FIXME: May not work in multi-row mode.
+    if '1' <= key <= '9':
+        n = int(key) - 1
+        to_hide[n] = not to_hide[n]
+    if key == 'q' or key == '\x1b':
+        sys.exit()
+    if key == ' ':
+        while True:
+            key = screen.scan_key()
+            if key == ' ':
+                return
+    if key == 'w':
+        for rp in plots:
+            if rp.window:
+                rp.window = None
+            else:
+                rp.window = len(rp.series(0))
+
 def main():
-    opt = getopts('vcWh:m:g:w:F:') or usage()
+    opt = getopts('vcfWh:m:g:w:F:') or usage()
     use_curses = opt.c
-    to_hide = [int(s) for s in opt.h.split(',')] if opt.h else []
+    full_screen = opt.f
+    to_hide = [False] * MAX_SERIES
+    if opt.h:
+        for n in opt.h.split(','):
+            to_hide[int(n) - 1] = True
     nplots = int(opt.m) if opt.m else 1
-    grid = float(opt.g) if opt.g else 1
+    grid = float(opt.g) if opt.g else None
     automatic_grid = True if not opt.g else False
     window = float(opt.w) if opt.w else None
     automatic_window = opt.W
     fps = float(opt.F) if opt.F else 30.
 
-    screen = rplot.Screen(curses=use_curses)
+    width, height = None, None
+    if full_screen:
+        width, height = 1920, 1080
+    screen = rplot.Screen(curses=use_curses, width=width, height=height)
     plots = [None] * nplots
     height = screen.height // nplots
     for n in range(nplots):
@@ -120,7 +147,7 @@ def main():
                 do_automatic_grid(plots)
             if automatic_window:
                 do_automatic_window(plots)
-    screen.wait()
+        process_key(screen, plots, to_hide)
 
 if __name__ == "__main__":
     main()
