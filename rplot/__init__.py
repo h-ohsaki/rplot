@@ -99,6 +99,8 @@ class Plot:
                  width=None,
                  height=None,
                  offset=None,
+                 left=0,
+                 right=-1,
                  grid=None,
                  subgrid=None,
                  start_color=0):
@@ -113,12 +115,12 @@ class Plot:
         if offset is None:
             offset = 0, 0
         self.offset = offset
+        self.left = left
+        self.right = right
         self.grid = grid
         self.subgrid = subgrid
         self.start_color = start_color
         self._series = []
-        self.left = 0
-        self.right = -1
         self.vmin = None
         self.vmax = None
 
@@ -258,7 +260,11 @@ class Plot:
         self.screen.screen.blit(bg, self.offset)
 
 class Screen:
-    def __init__(self, curses=False, width=None, height=None):
+    def __init__(self,
+                 curses=False,
+                 width=None,
+                 height=None,
+                 fullscreen=False):
         self.curses = curses
         # Uses SVGA (800x600 pixels) window by default.
         if not curses and (width is None or height is None):
