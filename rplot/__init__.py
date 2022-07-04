@@ -241,7 +241,7 @@ class Plot:
                               offset=self.offset)
 
     @cache
-    def create_background(self, n):
+    def create_background(self):
         surface = pygame.Surface((self.width, self.height))
         for y in range(self.height):
             alpha = 48 - int(48 * y / self.height)
@@ -257,7 +257,7 @@ class Plot:
     def draw_background(self):
         """Fill the background with gradient colors."""
         # FIXME: Should not re-generate at every drawing.
-        bg = self.create_background(self.start_color)
+        bg = self.create_background()
         self.screen.screen.blit(bg, self.offset)
 
 class Screen:
