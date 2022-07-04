@@ -5,6 +5,9 @@
 # All rights reserved.
 #
 
+# automatic speed control
+# multiple polots in row
+
 import fileinput
 import re
 import sys
@@ -16,13 +19,14 @@ import tbdump
 
 def usage():
     die(f"""\
-usage: {sys.argv[0]} [-vcgw] [-F #] [-x n[,n...]] [file...]
+usage: {sys.argv[0]} [-vcW] [-x n[,n...]] [-g #] [-w #] [-F #] [file...]
   -v       verbose mode
   -c       curses mode (disable GUI display)
-  -g       automatic grid mode
-  -w       automatic window mode
-  -F fps   limit the frequency of display
   -x list  exclude specified files from display
+  -g val   specify the spacing of vertial grids
+  -w val   specify the window range
+  -W       automatic window range mode
+  -F fps   limit the frequency of display
 """)
 
 def process_line(rp, line):
@@ -36,7 +40,7 @@ def process_line(rp, line):
             sr.label = label
         sr.append(float(v))
 
-def need_display(rp, fps=30, last_draw=[0]):
+def need_display(fps=30, last_draw=[0]):
     curtime = time.time()
     # Limit the frame rate by FPS.
     if curtime - last_draw[0] < 1 / fps:
@@ -44,10 +48,10 @@ def need_display(rp, fps=30, last_draw=[0]):
     last_draw[0] = curtime
     return True
 
-def redraw_display(rp):
-    rp.clear()
+def redraw_display(sc, rp):
+    sc.clear()
     rp.draw_series()
-    rp.update()
+    sc.update()
 
 def do_automatic_grid(rp):
     delta = rp.vmax - rp.vmin
@@ -72,24 +76,27 @@ def do_automatic_window(rp, started=[None]):
         rp.window = len(rp.series(0))
 
 def main():
-    opt = getopts('ctgwF:x:') or usage()
+    opt = getopts('vcWx:g:w:F:') or usage()
     use_curses = opt.c
-    automatic_grid = opt.g
-    automatic_window = opt.w
-    print(automatic_window)
-    fps = float(opt.F) if opt.F else 30.
     excluded = [int(s) for s in opt.x.split(',')] if opt.x else []
+    grid = float(opt.g) if opt.g else 1
+    automatic_grid = True if not opt.g else False
+    window = float(opt.w) if opt.w else None
+    automatic_window = opt.W
+    fps = float(opt.F) if opt.F else 30.
 
-    rp = rplot.Plot(curses=use_curses, grid=1, subgrid=.2)
-    rp.init_screen()
+    sc = rplot.Screen(curses=use_curses)
+    rp = rplot.Plot(screen=sc, grid=1, subgrid=.2)
     rp.excluded = excluded
+    rp.grid = grid
+    rp.window = window
 
     _hook = fileinput.hook_encoded('utf-8', 'backslashreplace')
     for line in fileinput.input(openhook=_hook):
         line = line.rstrip()
         process_line(rp, line)
-        if need_display(rp, fps):
-            redraw_display(rp)
+        if need_display(fps):
+            redraw_display(sc, rp)
             if automatic_grid:
                 do_automatic_grid(rp)
             if automatic_window:
