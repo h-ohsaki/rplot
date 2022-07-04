@@ -232,19 +232,19 @@ class Plot:
         self.screen.draw_text(self.width - FONT_SIZE * 5,
                               0,
                               f'{self.vmax:8.2f}',
-                              WHITE,
+                              self.start_color,
                               offset=self.offset)
         self.screen.draw_text(self.width - FONT_SIZE * 5,
                               self.height - FONT_SIZE * 2,
                               f'{self.vmin:8.2f}',
-                              WHITE,
+                              self.start_color,
                               offset=self.offset)
 
     @cache
     def create_background(self):
         surface = pygame.Surface((self.width, self.height))
         for y in range(self.height):
-            alpha = 48 - int(48 * y / self.height)
+            alpha = int(48 * y / self.height)
             self.screen.draw_line(0,
                                   y,
                                   self.width,
@@ -412,6 +412,19 @@ class Screen:
                 event = pygame.event.wait()
                 if event.type == pygame.KEYDOWN:
                     return
+        else:
+            # Not necessary in curses mode.
+            pass
+
+    def scan_key(self):
+        if not self.curses:
+            # Pump event as much as possible.
+            while True:
+                event = pygame.event.poll()
+                if event.type == pygame.NOEVENT:
+                    return None
+                if event.type == pygame.KEYDOWN:
+                    return event.unicode
         else:
             # Not necessary in curses mode.
             pass
