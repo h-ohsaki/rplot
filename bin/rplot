@@ -6,6 +6,7 @@
 #
 
 import math
+import random
 import sys
 import threading
 import time
@@ -23,6 +24,7 @@ usage: {sys.argv[0]} [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps] [
   -m #     display multiple plots simultaneously
   -w range specify the plot range
   -F fps   limit the frequency of display
+  -D       demonstration mode (data are randomly generated)
 """)
 
 class View:
@@ -60,7 +62,25 @@ class View:
             for sr in rp._series:
                 sr.fill = self.fill
 
-def reader(view):
+def random_generator():
+    t = 0
+    y1, y2, y3 = 0, 0, 0
+    while True:
+        y1 = max(y1 + random.random() - .52, 0)
+        y2 = max(y2 + math.sin(random.random() - .52), 0)
+        y3 = max(y2 + math.log(1e-10 + random.random()), 0)
+        yield [t, y1, y2, y3]
+        time.sleep(.02)
+        t += .01
+
+def reader(view, generator):
+    if generator:
+        for fields in generator():
+            for n, v in enumerate(fields):
+                sr = view.series(n)
+                sr.append(float(v))
+            view.count += 1
+
     for line in sys.stdin:
         line = line.rstrip()
         fields = line.split()
@@ -112,7 +132,7 @@ def process_key(view):
             view.right = view.right // 2
     if key == '':
         if view.right < 0:
-            pass
+            view.left += (view.count - view.left) // 2
         else:
             view.right = view.right * 2
             if view.right > view.count:
@@ -123,33 +143,35 @@ def process_key(view):
 def main_loop(view):
     while True:
         curtime = time.time()
-        view.screen.clear()
-        for rp in view.plots:
-            rp.draw_background()
-            rp.draw_series()
-        view.screen.update()
+        if not view.pause:
+            do_automatic_grid(view)
+            view.screen.clear()
+            for rp in view.plots:
+                rp.draw_background()
+                rp.draw_series()
+            view.screen.update()
 
-        do_automatic_grid(view)
+            # Increment the right view position.
+            if view.right >= 0:
+                view.right = min(view.right + 1, view.count - 1)
+
         process_key(view)
         view.flush()
 
         next_time = curtime + 1 / view.fps
         delay = max(next_time - time.time(), 0)
-
-        # Increment the right view position.
-        if not view.pause and view.right >= 0:
-            view.right = min(view.right + 1000, view.count - 1)
         time.sleep(delay)
 
 def main():
     # Parse command line options.
-    opt = getopts('cfh:m:w:F:') or usage()
+    opt = getopts('cfh:m:w:F:D') or usage()
     use_curses = opt.c
     fullscreen = opt.f
     to_hide = [int(s) - 1 for s in opt.h.split(',')] if opt.h else []
     nplots = int(opt.m) if opt.m else 1
     window = float(opt.w) if opt.w else 0
     fps = float(opt.F) if opt.F else 30
+    generator = random_generator if opt.D else None
 
     screen = rplot.Screen(curses=use_curses, fullscreen=fullscreen)
     view = View(screen)
@@ -168,7 +190,7 @@ def main():
         print(sr)
 
     # Start a thread to read stream from STDIN.
-    th = threading.Thread(target=reader, args=(view, ), daemon=True)
+    th = threading.Thread(target=reader, args=(view, generator), daemon=True)
     th.start()
 
     main_loop(view)
