@@ -289,12 +289,14 @@ class Plot:
                               0,
                               f'{self.vmax:8.2f}',
                               self.start_color,
-                              offset=self.offset)
+                              offset=self.offset,
+                              plot=self)
         self.screen.draw_text(-FONT_SIZE * 5,
                               -FONT_SIZE * 2,
                               f'{self.vmin:8.2f}',
                               self.start_color,
-                              offset=self.offset)
+                              offset=self.offset,
+                              plot=self)
 
     @cache
     def create_background(self):
@@ -435,6 +437,7 @@ class Screen:
                   color=0,
                   size=FONT_SIZE,
                   offset=None,
+                  plot=None,
                   _cache=[]):
         """Display a text TEXT at the location of (X, Y).  Font size and color
         can be specified with COLOR and SIZE."""
@@ -456,14 +459,14 @@ class Screen:
             if len(text) >= 2:
                 # Negative coordinate indicates the distance from the oppsosite edge.
                 if x < 0:
-                    x = self.width * FONT_SIZE // 2 + x
+                    x = plot.width * FONT_SIZE // 2 + x
                 if y < 0:
-                    y = self.height * FONT_SIZE + y
+                    y = plot.height * FONT_SIZE + y
                 x = int(x // (FONT_SIZE / 2))
-                y = int(y / FONT_SIZE)
+                y = int(y // FONT_SIZE)
             attr = curses.color_pair(1 + color % 7)
             try:
-                self.screen.addstr(y, x, text, attr)
+                self.screen.addstr(dy + y, dx + x, text, attr)
             except:
                 pass
 
