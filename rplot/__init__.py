@@ -272,10 +272,12 @@ class Plot:
         self.update_minmax(series)
         # Draw grid line.
         if self.grid:
-            self.draw_grid(self.grid / 4, DARK_GRAY)
+            if not self.screen.curses:
+                self.draw_grid(self.grid / 2, DARK_GRAY)
             self.draw_grid(self.grid, GRAY)
         if self.xgrid:
-            self.draw_xgrid(self.xgrid / 4, DARK_GRAY)
+            if not self.screen.curses:
+                self.draw_xgrid(self.xgrid / 2, DARK_GRAY)
             self.draw_xgrid(self.xgrid, GRAY)
         # Draw all series.
         for sr in series:
@@ -283,13 +285,13 @@ class Plot:
         # Draw legends.
         self.draw_legends()
         # Display the maximum and the minimum values.
-        self.screen.draw_text(self.width - FONT_SIZE * 5,
+        self.screen.draw_text(-FONT_SIZE * 5,
                               0,
                               f'{self.vmax:8.2f}',
                               self.start_color,
                               offset=self.offset)
-        self.screen.draw_text(self.width - FONT_SIZE * 5,
-                              self.height - FONT_SIZE * 2,
+        self.screen.draw_text(-FONT_SIZE * 5,
+                              -FONT_SIZE * 2,
                               f'{self.vmin:8.2f}',
                               self.start_color,
                               offset=self.offset)
@@ -311,8 +313,9 @@ class Plot:
     def draw_background(self):
         """Fill the background with gradient colors."""
         # FIXME: Should not re-generate at every drawing.
-        bg = self.create_background()
-        self.screen.screen.blit(bg, self.offset)
+        if not self.screen.curses:
+            bg = self.create_background()
+            self.screen.screen.blit(bg, self.offset)
 
 class Screen:
     def __init__(self,
@@ -438,14 +441,26 @@ class Screen:
         if offset is None:
             offset = 0, 0
         dx, dy = offset
-        x, y = x + dx, y + dy
         if not self.curses:
+            # Negative coordinate indicates the distance from the oppsosite edge.
+            if x < 0:
+                x = self.width + x
+            if y < 0:
+                y = self.height + y
             font = self.load_font('Courier', size, bold=True)
             rgba = self.color_rgba(color)
             # The second parameter True means enabling antialiasing.
             text = font.render(text, True, rgba, BLACK)
-            self.screen.blit(text, (x, y))
+            self.screen.blit(text, (dx + x, dy + y))
         else:
+            if len(text) >= 2:
+                # Negative coordinate indicates the distance from the oppsosite edge.
+                if x < 0:
+                    x = self.width * FONT_SIZE // 2 + x
+                if y < 0:
+                    y = self.height * FONT_SIZE + y
+                x = int(x // (FONT_SIZE / 2))
+                y = int(y / FONT_SIZE)
             attr = curses.color_pair(1 + color % 7)
             try:
                 self.screen.addstr(y, x, text, attr)
@@ -488,4 +503,9 @@ class Screen:
                     return event.unicode
         else:
             # Not necessary in curses mode.
-            pass
+            self.screen.nodelay(True)
+            try:
+                key = self.screen.getkey()
+                return key
+            except:
+                return None

@@ -17,7 +17,7 @@ import tbdump
 
 def usage():
     die(f"""\
-usage: {sys.argv[0]} [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps] [file...]
+usage: {sys.argv[0]} [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps]
   -c       curses mode (disable GUI display)
   -f       full screen mode
   -h list  hide specified fields from display
