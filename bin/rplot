@@ -76,13 +76,12 @@ def reader(view):
 
 def do_automatic_grid(view):
     for rp in view.plots:
-        # Skip if either max or min is undetermined.
-        if rp.vmax is None or rp.vmin is None:
-            continue
-        delta = rp.vmax - rp.vmin
-        digits = int(math.log(delta) / math.log(10))
-        rp.grid = 10**digits
-        rp.subgrid = 2 * 10**(digits - 1)
+        grid = rp.auto_grid()
+        rp.grid = grid
+    sr = view.series(0)
+    xl, xr = sr[view.left], sr[view.right]
+    xgrid = rp.auto_grid(xl, xr)
+    rp.xgrid = xgrid
 
 def process_key(view):
     key = view.screen.scan_key()
@@ -97,7 +96,7 @@ def process_key(view):
     if key == ' ':
         view.pause = not view.pause
         if view.right <= 0:
-            view.right = view.count
+            view.right = view.count - 1
     if key == 'w':
         view.left = -view.count
     if key == '':
