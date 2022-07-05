@@ -105,7 +105,6 @@ class Plot:
                  left=0,
                  right=-1,
                  grid=None,
-                 subgrid=None,
                  xgrid=None,
                  start_color=0):
         self.screen = screen
@@ -122,7 +121,6 @@ class Plot:
         self.left = left
         self.right = right
         self.grid = grid
-        self.subgrid = subgrid
         self.xgrid = xgrid
         self.start_color = start_color
         self._series = []
@@ -130,7 +128,7 @@ class Plot:
         self.vmax = None
 
     def __repr__(self):
-        return f'Plot(grid={self.grid}, subgrid={self.subgrid}, _series={self._series})'
+        return f'Plot(grid={self.grid}, xgrid={self.xgrid}, _series={self._series})'
 
     # Series handling.
     def series(self, n):
@@ -194,6 +192,8 @@ class Plot:
             vmin = self.vmin
         if vmax is None:
             vmax = self.vmax
+        if vmin is None or vmax is None:
+            return None
         delta = vmax - vmin
         digits = int(math.log(delta) / math.log(10))
         return 10**digits
@@ -266,8 +266,6 @@ class Plot:
             return
         self.update_minmax(series)
         # Draw grid line.
-        if self.subgrid:
-            self.draw_grid(self.subgrid, DARK_GRAY)
         if self.grid:
             self.draw_grid(self.grid, GRAY)
         if self.xgrid:

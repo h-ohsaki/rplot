@@ -6,11 +6,11 @@ from test_more import ok, eq
 import rplot
 
 sc = rplot.Screen()
-rp = rplot.Plot(sc, grid=100, subgrid=10)
+rp = rplot.Plot(sc, grid=1, subgrid=.2)
 sr = rp.series(0)
 
 for x in range(rp.width):
-    sr.append(220 * math.sin(2 * math.pi * x / rp.width))
+    sr.append(1.2 * x / 100)
 rp.draw_series()
 sc.update()
 sc.wait()
