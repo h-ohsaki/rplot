@@ -6,6 +6,7 @@
 #
 
 import contextlib
+import math
 
 # Disable the banner when loading pygame modules.
 with contextlib.redirect_stdout(None):
@@ -105,6 +106,7 @@ class Plot:
                  right=-1,
                  grid=None,
                  subgrid=None,
+                 xgrid=None,
                  start_color=0):
         self.screen = screen
         if screen:
@@ -121,6 +123,7 @@ class Plot:
         self.right = right
         self.grid = grid
         self.subgrid = subgrid
+        self.xgrid = xgrid
         self.start_color = start_color
         self._series = []
         self.vmin = None
@@ -143,8 +146,10 @@ class Plot:
         not hidden."""
         return [sr for sr in self._series if len(sr) > 0 and not sr.hide]
 
-    def update_minmax(self, series):
+    def update_minmax(self, series=None):
         """Find the maximum and the minimum values of all series."""
+        if series is None:
+            series = [sr for sr in self._series if not sr.hide]
         self.vmin = min([sr.vmin for sr in series])
         self.vmax = max([sr.vmax for sr in series])
 
@@ -184,18 +189,37 @@ class Plot:
                                           offset=self.offset)
             x0, y0 = x, y
 
+    def auto_grid(self, vmin=None, vmax=None):
+        if vmin is None:
+            vmin = self.vmin
+        if vmax is None:
+            vmax = self.vmax
+        delta = vmax - vmin
+        digits = int(math.log(delta) / math.log(10))
+        return 10**digits
+
+    def find_grids(self, grid=None, vmin=None, vmax=None):
+        if grid is None:
+            grid = self.grid
+        if vmin is None:
+            vmin = self.vmin
+        if vmax is None:
+            vmax = self.vmax
+        # How many grid lines should be drawn?
+        ngrids = vmin / grid
+        n = int(ngrids)
+        frac = vmin - grid * n
+        # FIXME: Fail if vmin is negative?
+        v = self.vmin - grid * frac
+        while v < vmax:
+            yield v
+            v += grid
+
     def draw_grid(self, grid, color):
         """Draw grids for y-axis.  The interval between grids is spcified by
         GRID.  Its color is specified by COLOR."""
         # How many grid lines should be drawn?
-        ngrids = (self.vmax - self.vmin) / grid
-        n = int(ngrids)
-        # Avoid too many lins in curses mode to avoid cluttering.
-        if self.screen.curses and n > 5:
-            return
-        frac = ngrids - n
-        v = self.vmin + grid * frac
-        for i in range(n):
+        for v in self.find_grids():
             y = self.to_y_coordinate(v)
             # FIXME: It's better to control the brightntess with alpha channel.
             self.screen.draw_line(0,
@@ -204,7 +228,18 @@ class Plot:
                                   y,
                                   color,
                                   offset=self.offset)
-            v += grid
+
+    def draw_xgrid(self, grid, color):
+        sr = self.series(0)
+        xl, xr = sr[self.left], sr[self.right]
+        for v in self.find_grids(self.xgrid, xl, xr):
+            x = int(self.width * (v - xl) / (xr - xl))
+            self.screen.draw_line(x,
+                                  0,
+                                  x,
+                                  self.height,
+                                  color,
+                                  offset=self.offset)
 
     def draw_legends(self):
         """Draw legends for all lines plotted."""
@@ -235,6 +270,8 @@ class Plot:
             self.draw_grid(self.subgrid, DARK_GRAY)
         if self.grid:
             self.draw_grid(self.grid, GRAY)
+        if self.xgrid:
+            self.draw_xgrid(self.xgrid, GRAY)
         # Draw all series.
         for sr in series:
             self.draw_single_series(sr)
