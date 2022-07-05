@@ -1,10 +1,10 @@
 # NAME
 
-rplot - Stream-based realtime scientific data plotter.
+rplot - stream-based realtime scientific data plotter
 
 # SYNOPSIS
 
-rplot [-vca] [-F #] [-x n[,n...]] [file...]
+rplot [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps]
 
 # DESCRIPTION
 
