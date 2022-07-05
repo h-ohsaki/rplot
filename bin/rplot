@@ -6,6 +6,7 @@
 #
 
 import math
+import os
 import random
 import sys
 import threading
@@ -173,6 +174,7 @@ def main():
     fps = float(opt.F) if opt.F else 30
     generator = random_generator if opt.D else None
 
+    # os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
     screen = rplot.Screen(curses=use_curses, fullscreen=fullscreen)
     view = View(screen)
     view.left = -window
