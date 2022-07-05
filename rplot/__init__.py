@@ -128,7 +128,7 @@ class Plot:
         self.vmax = None
 
     def __repr__(self):
-        return f'Plot(grid={self.grid}, xgrid={self.xgrid}, _series={self._series})'
+        return f'Plot(width={self.width}, height={self.height}, offset={self.offset}, left={self.left}, right={self.right}, grid={self.grid}, xgrid={self.xgrid}, vmin={self.vmin}, vmax={self.vmax}, _series={self._series})'
 
     # Series handling.
     def series(self, n):
@@ -195,6 +195,8 @@ class Plot:
         if vmin is None or vmax is None:
             return None
         delta = vmax - vmin
+        if delta <= 0:
+            return None
         digits = int(math.log(delta) / math.log(10))
         return 10**digits
 
@@ -205,21 +207,24 @@ class Plot:
             vmin = self.vmin
         if vmax is None:
             vmax = self.vmax
+        if vmax - vmin < grid:
+            return
         # How many grid lines should be drawn?
         ngrids = vmin / grid
         n = int(ngrids)
-        frac = vmin - grid * n
+        remainder = vmin - grid * n
         # FIXME: Fail if vmin is negative?
-        v = self.vmin - grid * frac
+        v = self.vmin - grid * remainder
         while v < vmax:
-            yield v
+            if vmin <= v:
+                yield v
             v += grid
 
     def draw_grid(self, grid, color):
         """Draw grids for y-axis.  The interval between grids is spcified by
         GRID.  Its color is specified by COLOR."""
         # How many grid lines should be drawn?
-        for v in self.find_grids():
+        for v in self.find_grids(grid):
             y = self.to_y_coordinate(v)
             # FIXME: It's better to control the brightntess with alpha channel.
             self.screen.draw_line(0,
@@ -229,10 +234,10 @@ class Plot:
                                   color,
                                   offset=self.offset)
 
-    def draw_xgrid(self, grid, color):
+    def draw_xgrid(self, xgrid, color):
         sr = self.series(0)
         xl, xr = sr[self.left], sr[self.right]
-        for v in self.find_grids(self.xgrid, xl, xr):
+        for v in self.find_grids(xgrid, xl, xr):
             x = int(self.width * (v - xl) / (xr - xl))
             self.screen.draw_line(x,
                                   0,
@@ -267,8 +272,10 @@ class Plot:
         self.update_minmax(series)
         # Draw grid line.
         if self.grid:
+            self.draw_grid(self.grid / 4, DARK_GRAY)
             self.draw_grid(self.grid, GRAY)
         if self.xgrid:
+            self.draw_xgrid(self.xgrid / 4, DARK_GRAY)
             self.draw_xgrid(self.xgrid, GRAY)
         # Draw all series.
         for sr in series:
