@@ -6,7 +6,6 @@
 #
 
 import math
-import os
 import random
 import sys
 import threading
@@ -18,14 +17,14 @@ import tbdump
 
 def usage():
     die(f"""\
-usage: {sys.argv[0]} [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps]
+usage: {sys.argv[0]} [-cfD] [-h n[,n...]] [-m rows] [-w window] [-F fps]
   -c       curses mode (disable GUI display)
   -f       full screen mode
+  -D       demo mode (randomly generates input data)
   -h list  hide specified fields from display
-  -m #     display multiple plots simultaneously
-  -w range specify the plot range
-  -F fps   limit the frequency of display
-  -D       demonstration mode (data are randomly generated)
+  -m row   display multiple plots simultaneously
+  -w range specify the window range
+  -F fps   limit the frequency of display by FPS
 """)
 
 class View:
@@ -36,7 +35,8 @@ class View:
         self.right = right
         self.plots = []
         self.fps = 30
-        self.pause = False
+        self.running = True
+        self.need_redisplay = True
         self.fill = False
 
     def nplots(self):
@@ -55,7 +55,7 @@ class View:
         j = n // self.nplots()
         return self.plots[i].series(j)
 
-    def flush(self):
+    def update_state(self):
         # FIXME: reflect only when configuration is changed.
         for rp in self.plots:
             rp.left = self.left
@@ -96,6 +96,8 @@ def reader(view, generator):
         view.count += 1
 
 def do_automatic_grid(view):
+    if view.count == 0:
+        return
     for rp in view.plots:
         grid = rp.auto_grid()
         rp.grid = grid
@@ -104,7 +106,7 @@ def do_automatic_grid(view):
     xgrid = rp.auto_grid(xl, xr)
     rp.xgrid = xgrid
 
-def process_key(view):
+def do_process_key(view):
     key = view.screen.scan_key()
     if not key:
         return
@@ -115,11 +117,17 @@ def process_key(view):
     if key == 'q' or key == '\x1b':
         sys.exit()
     if key == ' ':
-        view.pause = not view.pause
+        view.running = not view.running
         if view.right <= 0:
             view.right = view.count - 1
     if key == 'w':
-        view.left = -view.count
+        l = view.left
+        if l < 0:
+            l = view.count + view.left
+        r = view.right
+        if r < 0:
+            r = view.count + view.right
+        view.left = -(r - l)
     if key == '':
         view.left = 0
         view.right = 1
@@ -128,7 +136,7 @@ def process_key(view):
         view.right = -1
     if key == '':
         if view.right < 0:
-            view.right = view.count // 2
+            view.left = view.left // 2
         else:
             view.right = view.right // 2
     if key == '':
@@ -140,24 +148,29 @@ def process_key(view):
                 view.right = -1
     if key == 'f':
         view.fill = not view.fill
+    view.need_redisplay = True
+
+def do_display(view):
+    view.screen.clear()
+    for rp in view.plots:
+        rp.draw_background()
+        rp.draw_series()
+    view.screen.update()
 
 def main_loop(view):
     while True:
         curtime = time.time()
-        if not view.pause:
+        do_process_key(view)
+
+        if view.running or view.need_redisplay:
+            view.update_state()
             do_automatic_grid(view)
-            view.screen.clear()
-            for rp in view.plots:
-                rp.draw_background()
-                rp.draw_series()
-            view.screen.update()
+            do_display(view)
+            view.need_redisplay = False
 
-            # Increment the right view position.
-            if view.right >= 0:
-                view.right = min(view.right + 1, view.count - 1)
-
-        process_key(view)
-        view.flush()
+        # Increment the right view position.
+        if view.running and view.right >= 0:
+            view.right = min(view.right + 1, view.count - 1)
 
         next_time = curtime + 1 / view.fps
         delay = max(next_time - time.time(), 0)
