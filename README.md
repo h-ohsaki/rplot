@@ -2,11 +2,11 @@
 
 rplot - stream-based real-time scientific data plotter
 
-![video](https://github.com/h-ohsaki/rplot/blob/master/screenshot/video.gif)
+![video](screenshot/video.gif)
 
 # SYNOPSIS
 
-rplot [-vcW] [-h n[,n...]] [-m #] [-g unit] [-w range] [-F fps]
+rplot [-cfD] [-h n[,n...]] [-m rows] [-w window] [-F fps]
 
 # DESCRIPTION
 
