@@ -92,6 +92,8 @@ def reader(view, generator):
             if pos > 0:
                 label, v = v[:pos], v[pos + 1:]
                 sr.label = label
+                if label.startswith('_'):
+                    sr.hide = True
             sr.append(float(v))
         view.count += 1
 
