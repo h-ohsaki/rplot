@@ -246,10 +246,13 @@ class Plot:
                                   color,
                                   offset=self.offset)
 
-    def draw_legends(self):
+    def draw_legends(self, auto_sort=False):
         """Draw legends for all lines plotted."""
         # NOTE: legends are shown also for hidden serries.
-        for n, sr in enumerate(self._series):
+        series = self._series
+        if auto_sort:
+            series = sorted(series, key=lambda x: -x[self.right])
+        for n, sr in enumerate(series):
             x = 1
             y = 1 + n * FONT_SIZE
             v = sr[self.right]
@@ -257,9 +260,9 @@ class Plot:
             self.screen.draw_text(x, y, sr.label, sr.color, offset=self.offset)
             # Display current, mean, and maximum values.
             mean = sr.vsum / len(sr)
-            self.screen.draw_text(x + FONT_SIZE * 3,
+            self.screen.draw_text(x + FONT_SIZE * 8,
                                   y,
-                                  f'{v:9.2f} AVG{mean:9.2f} MAX{sr.vmax:9.2f}',
+                                  f'{v:9.2f}    AVG{mean:9.2f}    MAX{sr.vmax:9.2f}',
                                   sr.color,
                                   offset=self.offset)
 
