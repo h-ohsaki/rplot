@@ -84,4 +84,4 @@ The latest version of **rplot** is available at PyPI
 
 # AUTHOR
 
-Hiroyuki Ohsaki <ohsaki[atmark]lsnl.jp>
+Hiroyuki Ohsaki <code[atmark]lsnl.jp>

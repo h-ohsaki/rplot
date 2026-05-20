@@ -11,9 +11,9 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='rplot',
-    version='1.8',
+    version='1.9',
     author='Hiroyuki Ohsaki',
-    author_email='ohsaki@lsnl.jp',
+    author_email='code@lsnl.jp',
     description='A stream-based realtime scientific data plotter',
     long_description=long_description,
     long_description_content_type='text/markdown',
